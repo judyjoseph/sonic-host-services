@@ -1389,7 +1389,10 @@ class KdumpCfg(object):
             "num_dumps": "3",
             "remote": "false",            # New feature: remote, default is "false"
             "ssh_string": "user@localhost",   # New feature: SSH key, default value
-            "ssh_path": "/a/b/c"          # New feature: SSH path, default value
+            "ssh_path": "/a/b/c",         # New feature: SSH path, default value
+            "runtime_arm": "false",       # Zero-downtime: reserve crash memory at runtime (no reboot)
+            "runtime_high_memory": "512", # Runtime high region size in MB (crashk_res)
+            "runtime_low_memory": "0"     # Runtime low (<4GB) region size in MB (crashk_low_res)
         }
 
         # check if kdump is enabled by default with grub config
@@ -1488,6 +1491,29 @@ class KdumpCfg(object):
 
             # Remote option
             run_cmd(["sonic-kdump-config", "--remote"])
+
+            # Zero-downtime runtime reservation (no reboot, no crashkernel=).
+            # When runtime_arm is true, carve crash memory on the running
+            # kernel via the in-tree sonic_kdump_runtime driver; otherwise
+            # release any runtime reservation.
+            runtime_arm = self.kdump_defaults["runtime_arm"]
+            if data.get("runtime_arm") is not None:
+                runtime_arm = data.get("runtime_arm")
+
+            if str(runtime_arm).lower() == "true":
+                high_mem = self.kdump_defaults["runtime_high_memory"]
+                if data.get("runtime_high_memory") is not None:
+                    high_mem = data.get("runtime_high_memory")
+
+                low_mem = self.kdump_defaults["runtime_low_memory"]
+                if data.get("runtime_low_memory") is not None:
+                    low_mem = data.get("runtime_low_memory")
+
+                run_cmd(["sonic-kdump-config", "--reserve-runtime",
+                         "--high-memory", str(high_mem),
+                         "--low-memory", str(low_mem)])
+            else:
+                run_cmd(["sonic-kdump-config", "--unreserve-runtime"])
 
 class NtpCfg(object):
     """

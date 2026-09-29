@@ -243,6 +243,43 @@ class TestHostcfgdDaemon(TestCase):
 
             mocked_subprocess.check_call.assert_has_calls(expected, any_order=True)
 
+    def test_kdump_runtime_arm(self):
+        MockConfigDb.set_config_db(HOSTCFG_DAEMON_INIT_CFG_DB)
+        MockConfigDb.CONFIG_DB['KDUMP'] = {
+            'config': {
+                "enabled": "true",
+                "runtime_arm": "true",
+                "runtime_high_memory": "1024",
+                "runtime_low_memory": "256",
+            }
+        }
+        daemon = hostcfgd.HostConfigDaemon()
+        with mock.patch('hostcfgd.subprocess') as mocked_subprocess:
+            daemon.kdumpCfg.load(MockConfigDb.CONFIG_DB['KDUMP'])
+
+            expected = [
+                call(['sonic-kdump-config', '--reserve-runtime',
+                      '--high-memory', '1024', '--low-memory', '256']),
+            ]
+            mocked_subprocess.check_call.assert_has_calls(expected, any_order=True)
+
+    def test_kdump_runtime_disarm(self):
+        MockConfigDb.set_config_db(HOSTCFG_DAEMON_INIT_CFG_DB)
+        MockConfigDb.CONFIG_DB['KDUMP'] = {
+            'config': {
+                "enabled": "true",
+                "runtime_arm": "false",
+            }
+        }
+        daemon = hostcfgd.HostConfigDaemon()
+        with mock.patch('hostcfgd.subprocess') as mocked_subprocess:
+            daemon.kdumpCfg.load(MockConfigDb.CONFIG_DB['KDUMP'])
+
+            expected = [
+                call(['sonic-kdump-config', '--unreserve-runtime']),
+            ]
+            mocked_subprocess.check_call.assert_has_calls(expected, any_order=True)
+
     def test_kdump_event_with_proc_cmdline(self):
         os.environ["HOSTCFGD_UNIT_TESTING"] = "2"
         MockConfigDb.set_config_db(HOSTCFG_DAEMON_CFG_DB)
